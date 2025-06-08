@@ -1,4 +1,4 @@
-local player = game.Players.LocalPlayerAdd commentMore actions
+local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
@@ -39,11 +39,9 @@ player:GetMouse().KeyDown:Connect(function(key)
     end
 end)
 
-local playersInSphere = {}
-
 spawn(function()
     while teleportSphere do
-        if teleportEnabled and character:FindFirstChild("Highlight") then
+        if teleportEnabled then
             for _, otherPlayer in pairs(game.Players:GetPlayers()) do
                 if otherPlayer == player then continue end
 
@@ -71,6 +69,4 @@ character:WaitForChild("Humanoid").Died:Connect(function()
         teleportSphere:Destroy()
     end
     teleportEnabled = false
-    playersInSphere = nil
-    setfenv(debug.getregistry()[1], {})
 end)
