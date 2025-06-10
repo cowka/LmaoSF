@@ -2,46 +2,73 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local teleportEnabled = true
+local teleportEnabled = false
+local teleportSphere = nil
+
+local function getHandleInHand()
+    local tool = character:FindFirstChildOfClass("Tool")
+    if tool then
+        return tool:FindFirstChild("Handle")
+    end
+    return nil
+end
 
 local function createSphere()
-    local sphere = Instance.new("Part")
-    sphere.Name = "TeleportSphere"
-    sphere.Shape = Enum.PartType.Ball
-    sphere.Size = Vector3.new(20, 20, 20)
-    sphere.Position = rootPart.Position
-    sphere.Anchored = false
-    sphere.CanCollide = false
-    sphere.Massless = false
-    sphere.Transparency = 0.5
-    sphere.Color = Color3.fromRGB(128, 0, 255)
-    sphere.Material = Enum.Material.ForceField
-    sphere.Parent = workspace
+    if teleportSphere then return end
+
+    teleportSphere = Instance.new("Part")
+    teleportSphere.Name = "TeleportSphere"
+    teleportSphere.Shape = Enum.PartType.Ball
+    teleportSphere.Size = Vector3.new(20, 20, 20)
+    teleportSphere.Position = rootPart.Position
+    teleportSphere.Anchored = false
+    teleportSphere.CanCollide = false
+    teleportSphere.Massless = false
+    teleportSphere.Transparency = 0.5
+    teleportSphere.Color = Color3.fromRGB(128, 0, 255)
+    teleportSphere.Material = Enum.Material.ForceField
+    teleportSphere.Parent = workspace
 
     local sphereMesh = Instance.new("SpecialMesh")
     sphereMesh.MeshType = Enum.MeshType.Sphere
     sphereMesh.Scale = Vector3.new(1, 1, 1)
-    sphereMesh.Parent = sphere
-
-    return sphere
+    sphereMesh.Parent = teleportSphere
 end
 
-local teleportSphere = createSphere()
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    teleportSphere.CFrame = rootPart.CFrame
-end)
+local function destroySphere()
+    if teleportSphere then
+        teleportSphere:Destroy()
+        teleportSphere = nil
+    end
+end
 
 player:GetMouse().KeyDown:Connect(function(key)
     if key:lower() == "r" then
         teleportEnabled = not teleportEnabled
-        teleportSphere.Transparency = teleportEnabled and 0.5 or 1
+        if teleportEnabled then
+            createSphere()
+            teleportSphere.Transparency = 0.5
+        else
+            destroySphere()
+        end
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if teleportSphere then
+        teleportSphere.CFrame = rootPart.CFrame
     end
 end)
 
 spawn(function()
-    while teleportSphere do
+    while true do
         if teleportEnabled then
+            local handle = getHandleInHand()
+            if not handle then
+                wait(0.1)
+                continue
+            end
+
             for _, otherPlayer in pairs(game.Players:GetPlayers()) do
                 if otherPlayer == player then continue end
 
@@ -55,7 +82,12 @@ spawn(function()
                 local radius = teleportSphere.Size.X / 2
 
                 if distance <= radius then
-                    otherHRP.CFrame = rootPart.CFrame * CFrame.new(0, 0, 0)
+                    otherHRP.CFrame = handle.CFrame * CFrame.new(0, 0, 0)
+                    otherHRP.Massless = true
+                    otherHRP.CanCollide = false
+                else
+                    otherHRP.Massless = false
+                    otherHRP.CanCollide = true
                 end
             end
         end
@@ -65,8 +97,15 @@ spawn(function()
 end)
 
 character:WaitForChild("Humanoid").Died:Connect(function()
-    if teleportSphere then
-        teleportSphere:Destroy()
-    end
     teleportEnabled = false
+    destroySphere()
+end)
+
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    rootPart = character:WaitForChild("HumanoidRootPart")
+
+    if not teleportSphere and teleportEnabled then
+        createSphere()
+    end
 end)
